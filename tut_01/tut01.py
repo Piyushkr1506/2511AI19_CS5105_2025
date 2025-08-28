@@ -1,88 +1,151 @@
+import streamlit as st
 import pandas as pd
 import os
+import shutil
 
-# Configuration
-input_file = "students.xlsx"   # Input Excel file
-output_dir = "output_files"    # Output directory for all generated files
+OUTPUT_DIR = "output_files"
 
-os.makedirs(output_dir, exist_ok=True)
+def clean_output_dir():
+    """Delete old output folder and recreate"""
+    if os.path.exists(OUTPUT_DIR):
+        shutil.rmtree(OUTPUT_DIR)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# --- Read Excel File ---
-try:
-    df = pd.read_excel(input_file)
-except FileNotFoundError:
-    print(f"Error: File '{input_file}' not found!")
-    exit()
+def rows_from_students_list(students):
+    """Convert list of pd.Series/dicts into rows for DataFrame"""
+    rows = []
+    for s in students:
+        if isinstance(s, pd.Series):
+            rows.append(s.to_dict())
+        elif isinstance(s, dict):
+            rows.append(s)
+    return rows
 
-if 'Roll' not in df.columns:
-    print("Error: 'Roll' column not found in Excel file.")
-    exit()
+def process_file(uploaded_file, n):
+    clean_output_dir()
+    df = pd.read_excel(uploaded_file)
 
-# Extract branch
-df['Branch'] = df['Roll'].astype(str).str[4:6]
+    if 'Roll' not in df.columns:
+        st.error("Error: 'Roll' column not found in Excel file.")
+        return None
 
-# --- 1. Branch-wise segregation ---
-branch_output_dir = os.path.join(output_dir, "branch_wise")
-os.makedirs(branch_output_dir, exist_ok=True)
-branches = df['Branch'].unique()
+    df['Branch'] = df['Roll'].astype(str).str[4:6]
+    branches = list(df['Branch'].unique())
 
-for branch in branches:
-    branch_df = df[df['Branch'] == branch].drop(columns=['Branch'])
-    branch_df.to_csv(os.path.join(branch_output_dir, f"{branch}.csv"), index=False)
+    created = {
+        'branch_files': [],
+        'round_robin_files': [],
+        'uniform_files': [],
+        'round_robin_summary': None,
+        'uniform_summary': None
+    }
 
-print(f"Branch-wise segregation done! Files created in '{branch_output_dir}'")
+    # 1. Branch-wise segregation
+    branch_out = os.path.join(OUTPUT_DIR, "branch_wise")
+    os.makedirs(branch_out, exist_ok=True)
+    for b in branches:
+        branch_df = df[df['Branch'] == b].drop(columns=['Branch'])
+        path = os.path.join(branch_out, f"{b}.csv")
+        branch_df.to_csv(path, index=False)
+        created['branch_files'].append(path)
 
-# --- 2. Round Robin Mix ---
-n = int(input("Enter the number of files for round robin mix (n): "))
-round_robin_output_dir = os.path.join(output_dir, "branch_wise_mix")
-os.makedirs(round_robin_output_dir, exist_ok=True)
+    # 2. Round robin mix
+    branch_dict = {b: df[df['Branch'] == b].reset_index(drop=True) for b in branches}
+    max_len = max(len(v) for v in branch_dict.values())
+    rr_out = os.path.join(OUTPUT_DIR, "branch_wise_mix")
+    os.makedirs(rr_out, exist_ok=True)
 
-branch_dict = {b: df[df['Branch'] == b].reset_index(drop=True) for b in branches}
-max_len = max(len(v) for v in branch_dict.values())
+    rr_files = [[] for _ in range(n)]
+    idx = 0
+    for i in range(max_len):
+        for b in branches:
+            if i < len(branch_dict[b]):
+                rr_files[idx % n].append(branch_dict[b].iloc[i])
+                idx += 1
 
-round_robin_files = [[] for _ in range(n)]
-index = 0
-for i in range(max_len):
-    for branch in branches:
-        if i < len(branch_dict[branch]):
-            round_robin_files[index % n].append(branch_dict[branch].iloc[i])
-            index += 1
+    rr_counts = []
+    for i, students in enumerate(rr_files):
+        rows = rows_from_students_list(students)
+        df_mix = pd.DataFrame(rows)
+        counts = df_mix['Branch'].value_counts().reindex(branches, fill_value=0)
+        rr_counts.append(counts)
+        df_mix.drop(columns=['Branch']).to_csv(os.path.join(rr_out, f"round_robin_{i+1}.csv"), index=False)
+        created['round_robin_files'].append(os.path.join(rr_out, f"round_robin_{i+1}.csv"))
 
-round_robin_counts = []
-for idx, students in enumerate(round_robin_files):
-    mix_df = pd.DataFrame(students)
-    counts = mix_df['Branch'].value_counts().reindex(branches, fill_value=0)
-    round_robin_counts.append(counts)
-    mix_df.drop(columns=['Branch']).to_csv(os.path.join(round_robin_output_dir, f"round_robin_{idx+1}.csv"), index=False)
+    rr_summary = pd.DataFrame(rr_counts)
+    rr_summary.index = [f"round_robin_{i+1}" for i in range(n)]
+    rr_summary_path = os.path.join(OUTPUT_DIR, "branch_wise_mix_summary.xlsx")
+    rr_summary.to_excel(rr_summary_path)
+    created['round_robin_summary'] = rr_summary_path
 
-round_robin_summary = pd.DataFrame(round_robin_counts)
-round_robin_summary.index = [f"round_robin_{i+1}" for i in range(n)]
-round_robin_summary.to_excel(os.path.join(output_dir, "branch_wise_mix_summary.xlsx"))
+    # 3. Uniform mix
+    u_out = os.path.join(OUTPUT_DIR, "uniform_mix")
+    os.makedirs(u_out, exist_ok=True)
+    sorted_branches = sorted(branch_dict.items(), key=lambda x: len(x[1]), reverse=True)
 
-print(f"Round robin mix done! Files and summary created.")
+    u_files = [[] for _ in range(n)]
+    idx = 0
+    for b, bdf in sorted_branches:
+        for i in range(len(bdf)):
+            u_files[idx % n].append(bdf.iloc[i])
+            idx += 1
 
-# --- 3. Uniform Mix ---
-uniform_mix_output_dir = os.path.join(output_dir, "uniform_mix")
-os.makedirs(uniform_mix_output_dir, exist_ok=True)
+    u_counts = []
+    for i, students in enumerate(u_files):
+        rows = rows_from_students_list(students)
+        u_df = pd.DataFrame(rows)
+        counts = u_df['Branch'].value_counts().reindex(branches, fill_value=0)
+        u_counts.append(counts)
+        u_df.drop(columns=['Branch']).to_csv(os.path.join(u_out, f"uniform_mix_{i+1}.csv"), index=False)
+        created['uniform_files'].append(os.path.join(u_out, f"uniform_mix_{i+1}.csv"))
 
-sorted_branches = sorted(branch_dict.items(), key=lambda x: len(x[1]), reverse=True)
+    u_summary = pd.DataFrame(u_counts)
+    u_summary.index = [f"uniform_mix_{i+1}" for i in range(n)]
+    u_summary_path = os.path.join(OUTPUT_DIR, "uniform_mix_summary.xlsx")
+    u_summary.to_excel(u_summary_path)
+    created['uniform_summary'] = u_summary_path
 
-uniform_files = [[] for _ in range(n)]
-index = 0
-for branch, students_df in sorted_branches:
-    for i in range(len(students_df)):
-        uniform_files[index % n].append(students_df.iloc[i])
-        index += 1
+    return created
 
-uniform_counts = []
-for idx, students in enumerate(uniform_files):
-    uniform_df = pd.DataFrame(students)
-    counts = uniform_df['Branch'].value_counts().reindex(branches, fill_value=0)
-    uniform_counts.append(counts)
-    uniform_df.drop(columns=['Branch']).to_csv(os.path.join(uniform_mix_output_dir, f"uniform_mix_{idx+1}.csv"), index=False)
+# ---------------- Streamlit UI ----------------
+st.title("Student Grouping Tool")
 
-uniform_summary = pd.DataFrame(uniform_counts)
-uniform_summary.index = [f"uniform_mix_{i+1}" for i in range(n)]
-uniform_summary.to_excel(os.path.join(output_dir, "uniform_mix_summary.xlsx"))
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+n = st.number_input("Enter number of groups", min_value=1, step=1, value=5)
 
-print(f"Uniform mix done! Files and summary created.")
+if "created" not in st.session_state:
+    st.session_state.created = None
+
+if uploaded_file:
+    if st.button("Create Groups"):
+        created = process_file(uploaded_file, int(n))
+        st.session_state.created = created
+        st.success("Files generated successfully!")
+
+if st.session_state.created:
+    created = st.session_state.created
+    option = st.radio("Choose output type", ["All Branch", "Mix Branch (Round Robin)", "Uniform Branch"])
+
+    if option == "All Branch":
+        st.write("Branch-wise files:")
+        for f in created['branch_files']:
+            with open(f, "rb") as file:
+                st.download_button(f"Download {os.path.basename(f)}", file.read(), file_name=os.path.basename(f))
+
+    elif option == "Mix Branch (Round Robin)":
+        st.write("Round-robin files:")
+        for f in created['round_robin_files']:
+            with open(f, "rb") as file:
+                st.download_button(f"Download {os.path.basename(f)}", file.read(), file_name=os.path.basename(f))
+        # ✅ Summary file download
+        with open(created['round_robin_summary'], "rb") as file:
+            st.download_button("Download Round Robin Summary (Excel)", file.read(), file_name="branch_wise_mix_summary.xlsx")
+
+    elif option == "Uniform Branch":
+        st.write("Uniform mix files:")
+        for f in created['uniform_files']:
+            with open(f, "rb") as file:
+                st.download_button(f"Download {os.path.basename(f)}", file.read(), file_name=os.path.basename(f))
+        # ✅ Summary file download
+        with open(created['uniform_summary'], "rb") as file:
+            st.download_button("Download Uniform Mix Summary (Excel)", file.read(), file_name="uniform_mix_summary.xlsx")
