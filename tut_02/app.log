@@ -1,0 +1,17 @@
+2025-10-23 18:04:53,282 - __main__ - INFO - File uploaded: input_btp_mtp_allocation.csv, Shape: (90, 22)
+2025-10-23 18:05:05,429 - __main__ - INFO - File uploaded: input_btp_mtp_allocation.csv, Shape: (90, 22)
+2025-10-23 18:05:05,461 - __main__ - INFO - Sorted 90 students by CGPA (descending)
+2025-10-23 18:05:05,461 - __main__ - INFO - Found 18 faculty columns: ['ABM', 'AE', 'AM', 'AR', 'CA', 'JC', 'JM', 'MA', 'RH', 'RM', 'RM2', 'RS', 'SK', 'SKD', 'SKM', 'SM', 'SS', 'ST']
+2025-10-23 18:05:05,493 - __main__ - INFO - Successfully allocated 90 students
+2025-10-23 18:05:05,494 - __main__ - INFO - Found 18 faculty columns: ['ABM', 'AE', 'AM', 'AR', 'CA', 'JC', 'JM', 'MA', 'RH', 'RM', 'RM2', 'RS', 'SK', 'SKD', 'SKM', 'SM', 'SS', 'ST']
+2025-10-23 18:05:05,539 - __main__ - INFO - Successfully computed faculty preference statistics
+2025-10-23 18:05:05,571 - __main__ - INFO - Found 18 faculty columns: ['ABM', 'AE', 'AM', 'AR', 'CA', 'JC', 'JM', 'MA', 'RH', 'RM', 'RM2', 'RS', 'SK', 'SKD', 'SKM', 'SM', 'SS', 'ST']
+2025-10-23 18:05:17,568 - __main__ - INFO - File uploaded: input_btp_mtp_allocation.csv, Shape: (90, 22)
+2025-10-23 18:05:28,150 - __main__ - INFO - File uploaded: input_btp_mtp_allocation.csv, Shape: (90, 22)
+2025-10-23 18:05:28,184 - __main__ - INFO - Sorted 90 students by CGPA (descending)
+2025-10-23 18:05:28,184 - __main__ - INFO - Found 18 faculty columns: ['ABM', 'AE', 'AM', 'AR', 'CA', 'JC', 'JM', 'MA', 'RH', 'RM', 'RM2', 'RS', 'SK', 'SKD', 'SKM', 'SM', 'SS', 'ST']
+2025-10-23 18:05:28,208 - __main__ - INFO - Successfully allocated 90 students
+2025-10-23 18:05:28,208 - __main__ - INFO - Found 18 faculty columns: ['ABM', 'AE', 'AM', 'AR', 'CA', 'JC', 'JM', 'MA', 'RH', 'RM', 'RM2', 'RS', 'SK', 'SKD', 'SKM', 'SM', 'SS', 'ST']
+2025-10-23 18:05:28,252 - __main__ - INFO - Successfully computed faculty preference statistics
+2025-10-23 18:05:28,284 - __main__ - INFO - Found 18 faculty columns: ['ABM', 'AE', 'AM', 'AR', 'CA', 'JC', 'JM', 'MA', 'RH', 'RM', 'RM2', 'RS', 'SK', 'SKD', 'SKM', 'SM', 'SS', 'ST']
+2025-10-23 18:05:36,123 - __main__ - INFO - File uploaded: input_btp_mtp_allocation.csv, Shape: (90, 22)
